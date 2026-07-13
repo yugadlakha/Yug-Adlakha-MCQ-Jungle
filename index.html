@@ -12,7 +12,19 @@
 <body>
 <header class="topbar"><button class="icon-btn" id="homeBtn">🏠</button><div class="brand"><strong>Yug Adlakha MCQ Jungle</strong><small>Explore • Practice • Qualify</small></div><div id="miniTimer" class="mini-timer">90:00</div><button class="icon-btn" id="themeBtn">🌙</button></header>
 <main id="app"></main>
+<nav class="bottom-nav">
+ <button onclick="home()">🏠<span>Home</span></button>
+ <button onclick="home();setTimeout(()=>document.getElementById('courses')?.scrollIntoView({behavior:'smooth'}),50)">📚<span>Courses</span></button>
+ <button onclick="dashboard()">📊<span>Dashboard</span></button>
+ <button onclick="bookmarksPage()">🔖<span>Saved</span></button>
+ <button onclick="profile()">👤<span>Profile</span></button>
+</nav>
 <footer>© 2026 Yug Adlakha MCQ Jungle. All rights reserved. • <a href="https://youtube.com/@yugadlakha" target="_blank" rel="noopener">YouTube</a></footer>
-<script src="data.js"></script><script src="app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="data.js"></script>
+<script src="firebase-cloud.js"></script>
+<script src="app.js"></script>
 <script>if("serviceWorker"in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js"));}</script>
 </body></html>
