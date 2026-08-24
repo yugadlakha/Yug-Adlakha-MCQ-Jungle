@@ -33,7 +33,6 @@ const store={
 };
 const getPremiumCode=()=>String(store.get("premiumAccessCode",DEFAULT_PREMIUM_CODE));
 const setPremiumCode=code=>store.set("premiumAccessCode",String(code));
-const appVersion="Paper 14 Rewrite v2.6";
 
 const profileData=()=>store.get("studentProfile",null),attempts=()=>store.get("attemptHistory",[]),certs=()=>store.get("certificates",[]),savedQuiz=()=>store.get("activeQuiz",null);
 const bookmarkKeys=()=>store.get("questionBookmarks",[]);
@@ -66,9 +65,8 @@ function home(){
 
  <section class="hero">
   <span class="badge">CMA & CA MCQ Platform</span>
-  <span class="version-pill">${appVersion}</span>
   <h1>Yug Adlakha MCQ Jungle</h1>
-  <p>Search questions instantly, practise CMA Final papers, save weak questions and revise them later.</p>
+  <p>Search questions instantly, save weak questions and revise them later.</p>
 
   <div class="smart-search-box">
    <span class="search-icon">🔍</span>
@@ -132,7 +130,7 @@ function home(){
   <article class="card tool-card" onclick="installApp()"><h3>📱 Install App</h3><p>Add to Android home screen</p></article>
   <article class="card tool-card" onclick="adminLogin()"><span class="badge">Owner Only</span><h3>🛠️ Admin Panel</h3><p>Manage premium access</p></article>
  </section>
- <p class="release-note">Yug Adlakha MCQ Jungle • ${appVersion}</p>`;
+ <p class="release-note">Yug Adlakha MCQ Jungle</p>`;
 }
 
 function showCMAFinal(){
