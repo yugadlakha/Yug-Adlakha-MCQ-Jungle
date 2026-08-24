@@ -129,8 +129,7 @@ window.renderAuthScreen = function(mode="login"){
   const appElement = document.getElementById("app");
   const nav = document.querySelector(".bottom-nav");
   if (nav) nav.style.display = "none";
-  const timer = document.getElementById("miniTimer");
-  if (timer) timer.style.display = "none";
+  document.getElementById("miniTimer").style.display = "none";
 
   const signup = mode === "signup";
   appElement.innerHTML = `
@@ -287,59 +286,3 @@ window.startCloudApp = function(){
     if (typeof home === "function") home();
   });
 };
-
-/* --- LEADERBOARD EXTENSION --- */
-
-window.submitToLeaderboard = async function(score, subject = "General") {
-  if (!cloudState.user) return;
-  try {
-    const profile = readLocalJson("studentProfile", {});
-    const studentName = profile.name || cloudState.user.displayName || cloudState.user.email.split("@")[0];
-    await firebaseDb.collection("leaderboard").add({
-      uid: cloudState.user.uid,
-      name: studentName,
-      score: Number(score),
-      subject: subject,
-      course: profile.course || "CMA",
-      level: profile.level || "CMA Final",
-      city: profile.city || "",
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-  } catch (err) {
-    console.error("Leaderboard submit failed:", err);
-  }
-};
-
-window.renderLeaderboardScreen = async function() {
-  const appElement = document.getElementById("app");
-  appElement.innerHTML = `<section class="card" style="text-align:center;"><div class="spinner"></div><h2>Loading Leaderboard…</h2></section>`;
-  try {
-    const snapshot = await firebaseDb.collection("leaderboard").orderBy("score", "desc").limit(10).get();
-    let rows = "";
-    let rank = 1;
-    snapshot.forEach(doc => {
-      const d = doc.data();
-      const badge = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
-      rows += `
-        <div style="display:flex;justify-content:space-between;padding:12px;border-bottom:1px solid #e0e0e0;">
-          <div style="text-align:left;">
-            <strong>${badge} ${cloudEscape(d.name)}</strong>
-            <div style="font-size:12px;color:#666;">${cloudEscape(d.level || "")} • ${cloudEscape(d.subject || "")}</div>
-          </div>
-          <strong style="color:#2b7a0b;font-size:16px;">${d.score} pts</strong>
-        </div>`;
-      rank++;
-    });
-    if (snapshot.empty) rows = `<p style="padding:20px;color:#777;">No scores recorded yet!</p>`;
-    appElement.innerHTML = `
-      <section class="card" style="max-width:550px;margin:20px auto;padding:16px;">
-        <h1 style="text-align:center;">🏆 Jungle Leaderboard</h1>
-        <div style="background:#fff;border-radius:8px;">${rows}</div>
-        <button class="btn" style="margin-top:16px;width:100%;" onclick="if(typeof home==='function') home();">Back to Home</button>
-      </section>`;
-  } catch (e) {
-    console.error(e);
-    appElement.innerHTML = `<section class="card"><p class="auth-message error">Failed to load leaderboard.</p></section>`;
-  }
-};
-
