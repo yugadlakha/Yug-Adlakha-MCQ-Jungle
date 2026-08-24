@@ -33,7 +33,7 @@ const store={
 };
 const getPremiumCode=()=>String(store.get("premiumAccessCode",DEFAULT_PREMIUM_CODE));
 const setPremiumCode=code=>store.set("premiumAccessCode",String(code));
-const appVersion="Public Beta";
+const appVersion="Paper 14 Rewrite v2.6";
 
 const profileData=()=>store.get("studentProfile",null),attempts=()=>store.get("attemptHistory",[]),certs=()=>store.get("certificates",[]),savedQuiz=()=>store.get("activeQuiz",null);
 const bookmarkKeys=()=>store.get("questionBookmarks",[]);
@@ -269,51 +269,44 @@ async function saveProfile(){
  }
  home();
 }
-function openSubject(code){if(!profileData())return profile();let s=SUBJECT_DATA[code],n=s.questions.length,free=Math.min(100,n),premium=Math.max(0,n-100);app.innerHTML=`${profileSummary()}<section class="card"><span class="badge">${s.paper}</span><h1>${code} — ${esc(s.name)}</h1><p>${n} valid scorable MCQs are currently available.</p>
-<div class="content-tags">
-  <span>MCQ Bank</span><span>Study Material MCQs</span><span>PYQ MCQs</span><span>Model Paper MCQs</span>
-</div>
-</section><section class="feature-grid"><article class="card mode-card" onclick="timerSetup('${code}','free')"><span class="badge">Free</span><h3>Random ${free} Questions</h3><p>Student chooses the timer • minimum 20 minutes</p></article><article class="card mode-card" onclick="premiumLogin('${code}')"><span class="badge">Premium</span><h3>${premium} Remaining Questions</h3><p>Student chooses the timer • minimum 20 minutes</p></article><article class="card mode-card" onclick="premiumLogin('${code}','mock')"><span class="badge">Full Mock</span><h3>All ${n} Questions</h3><p>Student chooses the timer • premium access</p></article></section>`}
+function openSubject(code){
+ if(!profileData())return profile();
+ const s=SUBJECT_DATA[code],n=s.questions.length;
+ const free=Math.min(50,n),premium=Math.max(0,n-50);
+ app.innerHTML=`${profileSummary()}
+ <section class="card">
+  <span class="badge">${s.paper}</span>
+  <h1>${code} — ${esc(s.name)}</h1>
+  <p>${n} valid scorable MCQs are currently available.</p>
+  <div class="content-tags"><span>MCQ Bank</span><span>Study Material MCQs</span><span>PYQ MCQs</span><span>Model Paper MCQs</span></div>
+ </section>
+ <section class="feature-grid">
+  <article class="card mode-card" onclick="practiceSetup('${code}')"><span class="badge">Free Practice</span><h3>Choose 10, 20, 30 or 50 Questions</h3><p>Random questions from the first ${free} questions • no certificate</p></article>
+  <article class="card mode-card" onclick="premiumLogin('${code}')"><span class="badge">Premium</span><h3>${premium} Remaining Questions</h3><p>Complete the remaining question bank with a custom timer.</p></article>
+  <article class="card mode-card" onclick="premiumLogin('${code}','mock')"><span class="badge">Full Mock</span><h3>All ${n} Questions</h3><p>Complete subject bank • certificate and leaderboard eligible.</p></article>
+ </section>`;
+}
+function practiceSetup(code){
+ const available=Math.min(50,SUBJECT_DATA[code].questions.length);
+ const choices=[10,20,30,50].filter(n=>n<=available);
+ const defaultCount=choices.includes(50)?50:choices[choices.length-1];
+ app.innerHTML=`<section class="card practice-setup"><span class="badge">${code} • Free Practice</span><h1>Choose Practice Questions</h1><p>Select how many random questions you want to attempt. The free practice bank contains up to 50 questions.</p><div class="question-count-grid">${choices.map(n=>`<button class="count-btn ${n===defaultCount?"active":""}" onclick="selectPracticeCount(${n})"><strong>${n}</strong><span>Questions</span></button>`).join("")}</div><input type="hidden" id="practiceCount" value="${defaultCount}"><div class="notice">Practice attempts do not generate certificates or leaderboard ranks.</div><div class="actions" style="margin-top:16px"><button class="btn" onclick="timerSetup('${code}','practice',Number(document.getElementById('practiceCount').value))">Continue to Timer</button><button class="btn ghost" onclick="openSubject('${code}')">Back</button></div></section>`;
+}
+function selectPracticeCount(count){
+ document.getElementById('practiceCount').value=count;
+ document.querySelectorAll('.count-btn').forEach(btn=>btn.classList.toggle('active',Number(btn.querySelector('strong').textContent)===count));
+}
 function premiumLogin(code,mode="premium"){app.innerHTML=`<section class="card"><h1>Premium Access</h1><p>Subscribe to Yug Adlakha on YouTube, watch the latest MCQ video and enter the code.</p><a class="btn" href="https://youtube.com/@yugadlakha" target="_blank">Open YouTube</a><input class="input" id="premiumCode" placeholder="Enter access code" style="margin-top:15px"><div class="actions"><button class="btn gold" onclick="checkPremium('${code}','${mode}')">Unlock</button><button class="btn ghost" onclick="openSubject('${code}')">Back</button></div><div id="premiumMessage"></div></section>`}
 function checkPremium(c,m){
- if(premiumCode.value.replace(/\s/g,"").toUpperCase()===getPremiumCode().replace(/\s/g,"").toUpperCase())timerSetup(c,m);
+ if(premiumCode.value.replace(/\s/g,"").toUpperCase()===getPremiumCode().replace(/\s/g,"").toUpperCase())timerSetup(c,m,null);
  else premiumMessage.innerHTML=`<div class="not-attempted">Invalid code.</div>`;
 }
-function timerSetup(code,mode){
+function timerSetup(code,mode,questionCount=null){
  const bank=SUBJECT_DATA[code].questions;
- const count=mode==="free"?Math.min(100,bank.length):(mode==="premium"?Math.max(0,bank.length-100):bank.length);
- const label=mode==="free"?"Free Test":(mode==="premium"?"Premium Test":"Full Mock");
+ const count=mode==="practice"?Math.min(Number(questionCount)||50,50,bank.length):(mode==="premium"?Math.max(0,bank.length-50):bank.length);
+ const label=mode==="practice"?"Practice Test":(mode==="premium"?"Premium Test":"Full Mock");
  if(!count){alert("No questions available in this mode.");return}
- app.innerHTML=`<section class="card timer-setup">
-  <span class="badge">${code} • ${label}</span>
-  <h1>Set Your Test Timer</h1>
-  <p>Choose the test duration like setting an alarm clock. Minimum duration is <b>20 minutes</b>.</p>
-  <div class="clock-face">
-   <div class="clock-icon">⏰</div>
-   <div class="clock-value"><span id="timerValue">60</span><small>minutes</small></div>
-  </div>
-  <div class="preset-grid">
-   <button class="preset-btn" onclick="setTimerMinutes(20)">20 min</button>
-   <button class="preset-btn" onclick="setTimerMinutes(30)">30 min</button>
-   <button class="preset-btn active" onclick="setTimerMinutes(60)">60 min</button>
-   <button class="preset-btn" onclick="setTimerMinutes(90)">90 min</button>
-   <button class="preset-btn" onclick="setTimerMinutes(120)">120 min</button>
-   <button class="preset-btn" onclick="setTimerMinutes(180)">180 min</button>
-  </div>
-  <label style="margin-top:16px">Or enter your own time</label>
-  <div class="custom-time-row">
-   <button class="time-step" onclick="changeTimer(-5)">−</button>
-   <input class="input timer-input" id="customMinutes" type="number" min="20" max="600" value="60" oninput="syncTimerInput()">
-   <span>minutes</span>
-   <button class="time-step" onclick="changeTimer(5)">+</button>
-  </div>
-  <div id="timerError"></div>
-  <div class="notice">The test will auto-submit when the selected time ends. Warnings appear at 15 minutes and 5 minutes remaining.</div>
-  <div class="actions" style="margin-top:16px">
-   <button class="btn" onclick="confirmTimerAndStart('${code}','${mode}')">Start ${label}</button>
-   <button class="btn ghost" onclick="openSubject('${code}')">Back</button>
-  </div>
- </section>`;
+ app.innerHTML=`<section class="card timer-setup"><span class="badge">${code} • ${label}</span><h1>Set Your Test Timer</h1><p>${mode==="practice"?`${count} questions selected. `:""}Choose the test duration. Minimum duration is <b>20 minutes</b>.</p><div class="clock-face"><div class="clock-icon">⏰</div><div class="clock-value"><span id="timerValue">60</span><small>minutes</small></div></div><div class="preset-grid"><button class="preset-btn" onclick="setTimerMinutes(20)">20 min</button><button class="preset-btn" onclick="setTimerMinutes(30)">30 min</button><button class="preset-btn" onclick="setTimerMinutes(45)">45 min</button><button class="preset-btn active" onclick="setTimerMinutes(60)">60 min</button><button class="preset-btn" onclick="setTimerMinutes(90)">90 min</button><button class="preset-btn" onclick="setTimerMinutes(120)">120 min</button></div><label style="margin-top:16px">Or enter your own time</label><div class="custom-time-row"><button class="time-step" onclick="changeTimer(-5)">−</button><input class="input timer-input" id="customMinutes" type="number" min="20" max="600" value="60" oninput="syncTimerInput()"><span>minutes</span><button class="time-step" onclick="changeTimer(5)">+</button></div><input type="hidden" id="selectedQuestionCount" value="${count}"><div id="timerError"></div><div class="notice">The test auto-submits when time ends. Warnings appear at 15 minutes and 5 minutes remaining.</div><div class="actions" style="margin-top:16px"><button class="btn" onclick="confirmTimerAndStart('${code}','${mode}')">Start ${label}</button><button class="btn ghost" onclick="${mode==="practice"?`practiceSetup('${code}')`:`openSubject('${code}')`}">Back</button></div></section>`;
  window.selectedTimerMinutes=60;
 }
 
@@ -352,14 +345,25 @@ function confirmTimerAndStart(code,mode){
   document.getElementById("timerError").innerHTML=`<div class="not-attempted" style="margin-top:10px">Maximum timer allowed is 600 minutes.</div>`;
   return;
  }
- startMode(code,mode,minutes);
+ const count=Number(document.getElementById("selectedQuestionCount")?.value)||null;
+ startMode(code,mode,minutes,count);
 }
 
-function startMode(code,mode,minutes){
- let bank=SUBJECT_DATA[code].questions,qs,name;
- if(mode==="free"){qs=shuffle(bank.slice(0,Math.min(100,bank.length)));name=`${code} Free Test`}
- else if(mode==="premium"){qs=shuffle(bank.slice(100));name=`${code} Premium Test`}
- else{qs=shuffle(bank);name=`${code} Full Mock`}
+function startMode(code,mode,minutes,questionCount=null){
+ const bank=SUBJECT_DATA[code].questions;
+ let qs,name;
+ if(mode==="practice"){
+  const freePool=bank.slice(0,Math.min(50,bank.length));
+  const count=Math.min(Number(questionCount)||50,freePool.length);
+  qs=shuffle(freePool).slice(0,count);
+  name=`${code} Practice — ${count} Questions`;
+ }else if(mode==="premium"){
+  qs=shuffle(bank.slice(50));
+  name=`${code} Premium Test`;
+ }else{
+  qs=shuffle(bank);
+  name=`${code} Full Mock`;
+ }
  if(!qs.length)return alert("No questions available in this mode.");
  quiz={subject:code,mode,name,questions:qs,index:0,answers:Array(qs.length).fill(null),review:[],seconds:minutes*60,totalSeconds:minutes*60,chosenMinutes:minutes};
  persist();showTimer();startTimer();render();
@@ -377,7 +381,20 @@ function submit(auto){if(!auto&&!confirm("Submit test?"))return;clearInterval(ti
   if(quiz.answers[i]!==q.answer){if(!wrong.includes(key))wrong.push(key)}
   else wrong=wrong.filter(x=>x!==key);
  });
- store.set("wrongQuestionKeys",wrong);if(pct>=70)addCert(lastResult);app.innerHTML=`<section class="card result"><h1>${esc(quiz.name)} Result</h1><div class="score">${correct}/${total}</div><h2>${pct}%</h2><div class="result-summary"><div class="summary-box"><b>${attempted}</b>Attempted</div><div class="summary-box"><b>${correct}</b>Correct</div><div class="summary-box"><b>${incorrect}</b>Incorrect</div><div class="summary-box"><b>${unattempted}</b>Unattempted</div><div class="summary-box"><b>${Math.floor(time/60)}m</b>Time</div><div class="summary-box"><b>${pct>=70?"Yes":"No"}</b>Certificate</div></div><div class="actions"><button class="btn" onclick="review()">Review Submitted</button>${pct>=70?`<button class="btn gold" onclick="myCertificates()">Certificate</button>`:""}<button class="btn ghost" onclick="home()">Home</button></div></section>`}
+ store.set("wrongQuestionKeys",wrong);if(quiz.mode!=="practice"&&pct>=70)addCert(lastResult);app.innerHTML=`<section class="card result"><h1>${esc(quiz.name)} Result</h1><div class="score">${correct}/${total}</div><h2>${pct}%</h2><div class="result-summary"><div class="summary-box"><b>${attempted}</b>Attempted</div><div class="summary-box"><b>${correct}</b>Correct</div><div class="summary-box"><b>${incorrect}</b>Incorrect</div><div class="summary-box"><b>${unattempted}</b>Unattempted</div><div class="summary-box"><b>${Math.floor(time/60)}m</b>Time</div><div class="summary-box"><b>${quiz.mode==="practice"?"Practice":(pct>=70?"Yes":"No")}</b>${quiz.mode==="practice"?"Mode":"Certificate"}</div></div><div class="actions"><button class="btn" onclick="review()">Review Submitted</button>${incorrect||unattempted?`<button class="btn gold" onclick="retryWrong()">Retry Wrong/Skipped</button>`:""}<button class="btn ghost" onclick="retrySameTest()">Retry Same Test</button>${quiz.mode!=="practice"&&pct>=70?`<button class="btn gold" onclick="myCertificates()">Certificate</button>`:""}<button class="btn ghost" onclick="home()">Home</button></div></section>`}
+function retryWrong(){
+ const selected=lastResult.questions.filter((q,i)=>lastResult.answers[i]!==q.answer);
+ if(!selected.length)return alert("No wrong or skipped questions.");
+ const minutes=Math.max(20,Math.ceil(selected.length*1.2));
+ quiz={subject:lastResult.subject,mode:"revision",name:`${lastResult.subject} Wrong & Skipped Revision`,questions:shuffle(selected),index:0,answers:Array(selected.length).fill(null),review:[],seconds:minutes*60,totalSeconds:minutes*60,chosenMinutes:minutes};
+ persist();showTimer();startTimer();render();
+}
+function retrySameTest(){
+ const questions=shuffle(lastResult.questions);
+ const minutes=lastResult.chosenMinutes||Math.max(20,Math.ceil(questions.length*1.2));
+ quiz={subject:lastResult.subject,mode:lastResult.mode,name:lastResult.name,questions,index:0,answers:Array(questions.length).fill(null),review:[],seconds:minutes*60,totalSeconds:minutes*60,chosenMinutes:minutes};
+ persist();showTimer();startTimer();render();
+}
 function review(){
  app.innerHTML=`<section class="card">
   <h1>Submitted Answer Review</h1>
@@ -388,7 +405,7 @@ function review(){
    return`<article class="card">
     <h3>${q.id}. ${esc(q.q)}</h3>
     <div class="option ${u===q.answer?"correct":"wrong"}"><b>Your answer:</b> ${String.fromCharCode(65+u)}. ${esc(q.options[u])}</div>
-    <div class="option correct"><b>Correct answer:</b> ${String.fromCharCode(65+q.answer)}. ${esc(q.options[q.answer])}</div>
+    <div class="option correct"><b>Correct answer:</b> ${String.fromCharCode(65+q.answer)}. ${esc(q.options[q.answer])}</div><div class="explanation-box"><h4>Explanation</h4><p>${esc(q.explanation||`The correct option is ${String.fromCharCode(65+q.answer)}: ${q.options[q.answer]}. A detailed concept explanation will be added in the subject-content update.`)}</p>${q.examTip?`<div class="exam-tip"><b>Exam Tip:</b> ${esc(q.examTip)}</div>`:""}${q.topic?`<div class="question-meta"><span>Topic: ${esc(q.topic)}</span>${q.difficulty?`<span>Difficulty: ${esc(q.difficulty)}</span>`:""}</div>`:""}</div>
     <button class="btn danger report-btn" onclick="reportQuestion('${lastResult.subject}',${q.id})">Report Wrong Question</button>
    </article>`}).join("")}</div>
   <button class="btn" onclick="home()">Home</button>

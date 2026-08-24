@@ -1,16 +1,11 @@
-# Yug Adlakha MCQ Jungle — v2 Cloud
+# Yug Adlakha MCQ Jungle — v2.1 Practice Update
 
-Firebase integration:
-- Email/password signup and login
-- Forgot password
-- Logout
-- Cloud student profile
-- Cloud sync for attempts, certificates, bookmarks, wrong-answer notebook and active test
-- Progress available across devices
-- Existing smart search, all CMA Final tests, custom timer and Admin retained
-
-Firebase project: `mcq-jungle`
-
-Important:
-- Email/Password Authentication must remain enabled.
-- Firestore rules must allow each authenticated user to access only `/users/{uid}` and its subcollections.
+- Free practice reduced from 100 to 50 questions
+- Students choose 10, 20, 30 or 50 random questions
+- Premium begins after question 50
+- Practice mode has no certificates or leaderboard eligibility
+- Review supports explanations, exam tips, topics and difficulty
+- Retry wrong/skipped questions
+- Retry same test
+- Firebase login and cloud sync retained
+- No question wording changed

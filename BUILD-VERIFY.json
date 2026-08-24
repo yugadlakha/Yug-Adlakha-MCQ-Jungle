@@ -1,0 +1,14 @@
+{
+  "version": "2.7",
+  "updated_papers": [
+    15,
+    16,
+    17,
+    18,
+    19,
+    "20A"
+  ],
+  "practice_questions_per_updated_paper": 50,
+  "paper13_unchanged": true,
+  "paper14_unchanged": true
+}
