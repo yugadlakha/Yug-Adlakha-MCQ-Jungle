@@ -33,6 +33,7 @@ const store={
 };
 const getPremiumCode=()=>String(store.get("premiumAccessCode",DEFAULT_PREMIUM_CODE));
 const setPremiumCode=code=>store.set("premiumAccessCode",String(code));
+const appVersion="v2.7";
 
 const profileData=()=>store.get("studentProfile",null),attempts=()=>store.get("attemptHistory",[]),certs=()=>store.get("certificates",[]),savedQuiz=()=>store.get("activeQuiz",null);
 const bookmarkKeys=()=>store.get("questionBookmarks",[]);
@@ -65,6 +66,7 @@ function home(){
 
  <section class="hero">
   <span class="badge">CMA & CA MCQ Platform</span>
+  <span class="version-pill">${appVersion}</span>
   <h1>Yug Adlakha MCQ Jungle</h1>
   <p>Search questions instantly, save weak questions and revise them later.</p>
 
@@ -124,13 +126,16 @@ function home(){
   <article class="card tool-card" onclick="bookmarksPage()"><h3>🔖 Bookmarks</h3><p>Questions saved during tests</p></article>
   <article class="card tool-card" onclick="wrongNotebook()"><h3>📕 Wrong Notebook</h3><p>Incorrect and skipped questions</p></article>
   <article class="card tool-card" onclick="revisionMode()"><h3>🔄 Revision Mode</h3><p>Retry weak questions</p></article>
+  <article class="card tool-card" onclick="spacedRevision()"><h3>🧠 Spaced Revision</h3><p>Revise at the right time based on your performance</p></article>
+  <article class="card tool-card" onclick="examModeSetup()"><h3>⏱️ Exam Mode</h3><p>Timed mixed-paper CMA Final simulation</p></article>
+  <article class="card tool-card" onclick="pyqTrends()"><h3>📈 PYQ Trends</h3><p>See high-frequency papers and topics</p></article>
   <article class="card tool-card" onclick="myCertificates()"><h3>🎓 Certificates</h3><p>All course certificates</p></article>
   <article class="card tool-card" onclick="leaderboard()"><h3>🏆 Leaderboard</h3><p>Local rankings</p></article>
   <article class="card tool-card" onclick="contact()"><h3>💬 Ask a Doubt</h3><p>Telegram support</p></article>
   <article class="card tool-card" onclick="installApp()"><h3>📱 Install App</h3><p>Add to Android home screen</p></article>
   <article class="card tool-card" onclick="adminLogin()"><span class="badge">Owner Only</span><h3>🛠️ Admin Panel</h3><p>Manage premium access</p></article>
  </section>
- <p class="release-note">Yug Adlakha MCQ Jungle</p>`;
+ <p class="release-note">Yug Adlakha MCQ Jungle • ${appVersion}</p>`;
 }
 
 function showCMAFinal(){
@@ -212,6 +217,63 @@ function startRevision(type){
  const minutes=Math.max(20,Math.ceil(questions.length*1.2));
  quiz={subject:"REVISION",mode:"revision",name:type==="bookmarks"?"Bookmarked Revision":"Wrong Answer Revision",questions:shuffle(questions),index:0,answers:Array(questions.length).fill(null),review:[],seconds:minutes*60,totalSeconds:minutes*60,chosenMinutes:minutes};
  persist();showTimer();startTimer();render();
+}
+
+function spacedSchedule(){return store.get("spacedRevision",{})}
+function setSpacedSchedule(v){store.set("spacedRevision",v)}
+function spacedRevision(){
+ const schedule=spacedSchedule(), now=Date.now();
+ const due=Object.entries(schedule).filter(([,v])=>Number(v.due||0)<=now).map(([key])=>findQuestionByKey(key)).filter(Boolean);
+ if(!due.length){
+  const next=Object.values(schedule).filter(v=>v?.due).sort((a,b)=>a.due-b.due)[0];
+  app.innerHTML=`<section class="card"><span class="badge">Spaced Revision</span><h1>Nothing Due Right Now 🎯</h1><p>Your scheduled revision queue is clear.</p>${next?`<p class="notice">Next scheduled revision: <b>${new Date(next.due).toLocaleString()}</b></p>`:`<p class="small">Questions will enter the schedule automatically after you answer them incorrectly or mark them for revision.</p>`}<button class="btn ghost" onclick="home()">Home</button></section>`;
+  return;
+ }
+ const minutes=Math.max(20,Math.ceil(due.length*1.2));
+ quiz={subject:"REVISION",mode:"spaced",name:`Spaced Revision — ${due.length} Due`,questions:shuffle(due),index:0,answers:Array(due.length).fill(null),review:[],seconds:minutes*60,totalSeconds:minutes*60,chosenMinutes:minutes};
+ persist();showTimer();startTimer();render();
+}
+function scheduleQuestion(key,level){
+ const delays={wrong:1,repeat:3,good:7,strong:30};
+ const days=delays[level]||1;
+ const s=spacedSchedule(); s[key]={due:Date.now()+days*86400000,level,updatedAt:Date.now()}; setSpacedSchedule(s);
+}
+function updateSpacedFromResult(result){
+ const s=spacedSchedule();
+ result.questions.forEach((q,i)=>{
+  const key=qKey(q.subject||result.subject,q.id), a=result.answers[i];
+  if(a===null || a!==q.answer) scheduleQuestion(key,"wrong");
+  else {
+   const old=s[key];
+   if(old?.level==="wrong") scheduleQuestion(key,"repeat");
+   else if(old?.level==="repeat") scheduleQuestion(key,"good");
+   else scheduleQuestion(key,"strong");
+  }
+ });
+}
+function examModeSetup(){
+ const total=allQuestionRecords().length;
+ const choices=[20,30,50,100].filter(n=>n<=total);
+ app.innerHTML=`<section class="card"><span class="badge">Exam Mode</span><h1>CMA Final Exam Simulation</h1><p>Build a mixed-paper timed test from the complete CMA Final question bank.</p><div class="question-count-grid">${choices.map((n,i)=>`<button class="count-btn ${i===0?"active":""}" onclick="selectExamCount(${n})"><strong>${n}</strong><span>Questions</span></button>`).join("")}</div><input type="hidden" id="examCount" value="${choices[0]||0}"><div class="notice">Recommended: 50 questions. Questions are mixed across available CMA Final papers.</div><div class="actions"><button class="btn" onclick="examTimerSetup()">Continue</button><button class="btn ghost" onclick="home()">Back</button></div></section>`;
+}
+function selectExamCount(n){document.getElementById("examCount").value=n;document.querySelectorAll(".count-btn").forEach(b=>b.classList.toggle("active",Number(b.querySelector("strong").textContent)===n))}
+function examTimerSetup(){
+ const count=Number(document.getElementById("examCount").value); const mins=Math.max(20,Math.ceil(count*1.2));
+ app.innerHTML=`<section class="card timer-setup"><span class="badge">Exam Mode • ${count} Questions</span><h1>Set Exam Time</h1><p>Choose a realistic time limit for your mixed CMA Final simulation.</p><div class="preset-grid"><button class="preset-btn" onclick="setTimerMinutes(30)">30 min</button><button class="preset-btn" onclick="setTimerMinutes(45)">45 min</button><button class="preset-btn active" onclick="setTimerMinutes(${mins})">${mins} min</button><button class="preset-btn" onclick="setTimerMinutes(90)">90 min</button><button class="preset-btn" onclick="setTimerMinutes(120)">120 min</button></div><label>Or enter your own time</label><div class="custom-time-row"><button class="time-step" onclick="changeTimer(-5)">−</button><input class="input timer-input" id="customMinutes" type="number" min="20" max="600" value="${mins}" oninput="syncTimerInput()"><span>minutes</span><button class="time-step" onclick="changeTimer(5)">+</button></div><input type="hidden" id="examCountFinal" value="${count}"><div id="timerError"></div><div class="actions"><button class="btn gold" onclick="startExamFromSetup()">Start Exam</button><button class="btn ghost" onclick="examModeSetup()">Back</button></div></section>`;
+ window.selectedTimerMinutes=mins;
+}
+function startExamFromSetup(){
+ const mins=parseInt(document.getElementById("customMinutes").value), count=Number(document.getElementById("examCountFinal").value);
+ if(!Number.isFinite(mins)||mins<20||mins>600){document.getElementById("timerError").innerHTML=`<div class="not-attempted">Choose between 20 and 600 minutes.</div>`;return}
+ const qs=shuffle(allQuestionRecords()).slice(0,count); quiz={subject:"MIXED",mode:"exam",name:`CMA Final Exam Mode — ${count} Questions`,questions:qs,index:0,answers:Array(qs.length).fill(null),review:[],seconds:mins*60,totalSeconds:mins*60,chosenMinutes:mins}; persist();showTimer();startTimer();render();
+}
+function pyqTrends(){
+ const records=allQuestionRecords(), topicMap={}, paperMap={}, difficultyMap={};
+ records.forEach(q=>{const topic=q.topic||"Uncategorised";topicMap[topic]=(topicMap[topic]||0)+1;paperMap[q.paper]=(paperMap[q.paper]||0)+1;const d=q.difficulty||"Unrated";difficultyMap[d]=(difficultyMap[d]||0)+1});
+ const topTopics=Object.entries(topicMap).sort((a,b)=>b[1]-a[1]).slice(0,12), topPapers=Object.entries(paperMap).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+ const yearTagged=records.filter(q=>q.year||q.attempt||q.exam||q.session);
+ const yearMap={}; yearTagged.forEach(q=>{const y=q.year||q.attempt||q.exam||q.session;yearMap[y]=(yearMap[y]||0)+1});
+ app.innerHTML=`<section class="card"><span class="badge">PYQ Trend Detector</span><h1>What Gets Tested Most?</h1><p>Frequency analysis across the current CMA Final question bank. As PYQ year/session metadata is added, the detector can also show year-wise trends.</p><h2>🔥 Highest-Frequency Topics</h2><div class="review-list">${topTopics.map(([t,n],i)=>`<article class="card"><h3>#${i+1} ${esc(t)}</h3><p><b>${n}</b> questions tagged to this topic.</p></article>`).join("")}</div><h2>📚 Paper Coverage</h2><div class="review-list">${topPapers.map(([p,n])=>`<article class="card"><h3>${esc(p)}</h3><p>${n} questions currently available.</p></article>`).join("")}</div><h2>🎯 Difficulty Mix</h2><p>${Object.entries(difficultyMap).map(([d,n])=>`<span class="badge" style="margin:4px">${esc(d)}: ${n}</span>`).join("")}</p>${Object.keys(yearMap).length?`<h2>📅 Year / Attempt Trend</h2><p>${Object.entries(yearMap).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))).map(([y,n])=>`<span class="badge" style="margin:4px">${esc(y)}: ${n}</span>`).join("")}</p>`:`<div class="notice">The current question data does not yet contain year/session tags, so year-wise PYQ frequency cannot be calculated honestly yet.</div>`}<div class="actions"><button class="btn" onclick="examModeSetup()">Use Exam Mode</button><button class="btn ghost" onclick="home()">Home</button></div></section>`;
 }
 
 function profile(){
@@ -370,12 +432,12 @@ function persist(){store.set("activeQuiz",quiz)}function resumeTest(){quiz=saved
 function startTimer(){clearInterval(timer);updateTimer();timer=setInterval(()=>{quiz.seconds--;persist();updateTimer();if(quiz.seconds<=0){clearInterval(timer);submit(true)}},1000)}
 function fmt(s){return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")}function showTimer(){miniTimer.style.display="block"}function hideTimer(){miniTimer.style.display="none"}function updateTimer(){miniTimer.textContent=fmt(quiz.seconds);miniTimer.classList.toggle("warn",quiz.seconds<=900&&quiz.seconds>300);miniTimer.classList.toggle("danger",quiz.seconds<=300)}
 function render(){let q=quiz.questions[quiz.index],chosen=quiz.answers[quiz.index],answered=quiz.answers.filter(x=>x!==null).length,total=quiz.questions.length;app.innerHTML=`<div class="quiz-layout"><section class="card"><div class="quiz-head"><strong>${quiz.name}: ${quiz.index+1}/${total}</strong><div class="progress"><span style="width:${(quiz.index+1)/total*100}%"></span></div></div><div class="question">${q.id}. ${esc(q.q)}</div><div class="options">${q.options.map((o,i)=>`<button class="option ${chosen===i?"selected":""}" onclick="answer(${i})"><b>${String.fromCharCode(65+i)}.</b> ${esc(o)}</button>`).join("")}</div><div class="navrow"><button class="btn ghost" onclick="prev()">← Previous</button><button class="btn gold" onclick="markReview()">${quiz.review.includes(quiz.index)?"Remove Review":"Mark Review"}</button><button class="btn ghost" onclick="bookmarkCurrent()">${isBookmarked(quiz.subject,q.id)?"★ Saved":"☆ Bookmark"}</button><button class="btn" onclick="next()">${quiz.index===total-1?"Finish":"Next →"}</button></div></section><aside class="card"><div class="stats"><div class="stat"><b>${answered}</b>Answered</div><div class="stat"><b>${total-answered}</b>Left</div><div class="stat"><b>${quiz.review.length}</b>Review</div></div><div class="palette">${quiz.questions.map((_,i)=>`<button class="qnum ${quiz.answers[i]!==null?"answered":""} ${quiz.review.includes(i)?"review":""} ${i===quiz.index?"current":""}" onclick="go(${i})">${i+1}</button>`).join("")}</div><button class="btn" style="width:100%;margin-top:12px" onclick="submit(false)">Submit</button></aside></div>`}
-function bookmarkCurrent(){const q=quiz.questions[quiz.index];toggleSavedQuestion(quiz.subject,q.id);render()}
+function bookmarkCurrent(){const q=quiz.questions[quiz.index];toggleSavedQuestion(q.subject||quiz.subject,q.id);render()}
 function answer(i){quiz.answers[quiz.index]=i;persist();render()}function prev(){if(quiz.index>0){quiz.index--;persist();render()}}function next(){if(quiz.index<quiz.questions.length-1){quiz.index++;persist();render()}else submit(false)}function go(i){quiz.index=i;persist();render()}function markReview(){let i=quiz.index;quiz.review.includes(i)?quiz.review=quiz.review.filter(x=>x!==i):quiz.review.push(i);persist();render()}
-function submit(auto){if(!auto&&!confirm("Submit test?"))return;clearInterval(timer);hideTimer();localStorage.removeItem("activeQuiz");let correct=0;quiz.questions.forEach((q,i)=>{if(quiz.answers[i]===q.answer)correct++});let total=quiz.questions.length,attempted=quiz.answers.filter(x=>x!==null).length,incorrect=attempted-correct,unattempted=total-attempted,pct=Math.round(correct/total*100),p=profileData(),time=quiz.totalSeconds-quiz.seconds;lastResult={...quiz,score:correct,total,attempted,incorrect,unattempted,pct,time,profile:p,date:new Date().toLocaleString()};let h=attempts();h.push(lastResult);store.set("attemptHistory",h);
+function submit(auto){if(!auto&&!confirm("Submit test?"))return;clearInterval(timer);hideTimer();localStorage.removeItem("activeQuiz");let correct=0;quiz.questions.forEach((q,i)=>{if(quiz.answers[i]===q.answer)correct++});let total=quiz.questions.length,attempted=quiz.answers.filter(x=>x!==null).length,incorrect=attempted-correct,unattempted=total-attempted,pct=Math.round(correct/total*100),p=profileData(),time=quiz.totalSeconds-quiz.seconds;lastResult={...quiz,score:correct,total,attempted,incorrect,unattempted,pct,time,profile:p,date:new Date().toLocaleString()};updateSpacedFromResult(lastResult);let h=attempts();h.push(lastResult);store.set("attemptHistory",h);
  let wrong=wrongKeys();
  quiz.questions.forEach((q,i)=>{
-  const key=qKey(quiz.subject,q.id);
+  const key=qKey(q.subject||quiz.subject,q.id);
   if(quiz.answers[i]!==q.answer){if(!wrong.includes(key))wrong.push(key)}
   else wrong=wrong.filter(x=>x!==key);
  });
