@@ -21,10 +21,9 @@ const COURSE_CATALOG=[
  }
 ];
 
-const app=document.getElementById("app");
-let timer=null,quiz=null,lastResult=null,deferredInstallPrompt=null;
-window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e});
 
+const app=document.getElementById("app");let timer=null,quiz=null,lastResult=null,deferredInstallPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e});
 const store={
  get:(k,d)=>{try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},
  set:(k,v)=>{
@@ -32,42 +31,31 @@ const store={
   if(window.cloudQueueSave)window.cloudQueueSave(k);
  }
 };
-
 const getPremiumCode=()=>String(store.get("premiumAccessCode",DEFAULT_PREMIUM_CODE));
 const setPremiumCode=code=>store.set("premiumAccessCode",String(code));
 const appVersion="v2.7";
 
-const profileData=()=>store.get("studentProfile",null);
-const attempts=()=>store.get("attemptHistory",[]);
-const certs=()=>store.get("certificates",[]);
-const savedQuiz=()=>store.get("activeQuiz",null);
+const profileData=()=>store.get("studentProfile",null),attempts=()=>store.get("attemptHistory",[]),certs=()=>store.get("certificates",[]),savedQuiz=()=>store.get("activeQuiz",null);
 const bookmarkKeys=()=>store.get("questionBookmarks",[]);
 const wrongKeys=()=>store.get("wrongQuestionKeys",[]);
 const qKey=(subject,id)=>`${subject}:${id}`;
-
-const allQuestionRecords=()=>typeof SUBJECT_DATA!=="undefined"?Object.entries(SUBJECT_DATA).flatMap(([subject,data])=>
- (data.questions||[]).map(q=>({subject,paper:data.paper,subjectName:data.name,...q}))
-):[];
+const allQuestionRecords=()=>Object.entries(SUBJECT_DATA).flatMap(([subject,data])=>
+ data.questions.map(q=>({subject,paper:data.paper,subjectName:data.name,...q}))
+);
 
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 function shuffle(a){a=[...a];for(let i=a.length-1;i;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-
 function profileSummary(){
  const p=profileData();
  const email=window.cloudState?.user?.email||p?.email||"";
  return p?`<div class="profile-bar">
   <div class="profile-chip"><b>${esc(p.name)}</b> • ${esc(p.level)} • ${esc(p.city)}<small>${esc(email)}</small></div>
   <div class="cloud-chip">☁️ <span id="cloudStatus">Synced</span></div>
-  <button class="btn ghost" onclick="profile()">Account</button> 
+  <button class="btn ghost" onclick="profile()">Account</button>
  </div>`:`<div class="profile-bar"><div class="profile-chip">Complete your cloud profile.</div><button class="btn" onclick="profile()">Profile</button></div>`;
 }
-
 function stats(code){let r=attempts().filter(x=>x.subject===code);return{tests:r.length,best:r.length?Math.max(...r.map(x=>x.pct)):0,avg:r.length?Math.round(r.reduce((a,b)=>a+b.pct,0)/r.length):0}}
 function overall(){let r=attempts();return{tests:r.length,best:r.length?Math.max(...r.map(x=>x.pct)):0,avg:r.length?Math.round(r.reduce((a,b)=>a+b.pct,0)/r.length):0,certs:certs().length}}
-
-function hideTimer(){const el=document.getElementById("miniTimer");if(el)el.style.display="none"}
-function showTimer(){const el=document.getElementById("miniTimer");if(el)el.style.display="block"}
-
 function home(){
  clearInterval(timer);hideTimer();
  const o=overall();
@@ -142,7 +130,7 @@ function home(){
   <article class="card tool-card" onclick="examModeSetup()"><h3>⏱️ Exam Mode</h3><p>Timed mixed-paper CMA Final simulation</p></article>
   <article class="card tool-card" onclick="pyqTrends()"><h3>📈 PYQ Trends</h3><p>See high-frequency papers and topics</p></article>
   <article class="card tool-card" onclick="myCertificates()"><h3>🎓 Certificates</h3><p>All course certificates</p></article>
-  <article class="card tool-card" onclick="leaderboard()"><h3>🏆 Leaderboard</h3><p>Live rankings</p></article>
+  <article class="card tool-card" onclick="leaderboard()"><h3>🏆 Leaderboard</h3><p>Local rankings</p></article>
   <article class="card tool-card" onclick="contact()"><h3>💬 Ask a Doubt</h3><p>Telegram support</p></article>
   <article class="card tool-card" onclick="installApp()"><h3>📱 Install App</h3><p>Add to Android home screen</p></article>
   <article class="card tool-card" onclick="adminLogin()"><span class="badge">Owner Only</span><h3>🛠️ Admin Panel</h3><p>Manage premium access</p></article>
@@ -151,9 +139,9 @@ function home(){
 }
 
 function showCMAFinal(){
- if(typeof SUBJECT_DATA==="undefined")return;
  app.innerHTML=`${profileSummary()}<section class="card"><span class="badge">CMA Final</span><h1>CMA Final MCQ Practice</h1><p>All eight CMA Final papers are available.</p></section><h2 class="section-title">CMA Final Subjects</h2><section class="subject-grid">${Object.entries(SUBJECT_DATA).map(([c,s])=>{let st=stats(c),n=s.questions.length;return`<article class="card subject-card" onclick="openSubject('${c}')"><span class="badge">${s.paper}</span><h3>${c}</h3><p>${esc(s.name)}</p><p><b>${n} MCQs available</b></p><p class="small">Attempts: ${st.tests} • Best: ${st.best}%</p></article>`}).join("")}</section><div class="actions" style="margin-top:18px"><button class="btn ghost" onclick="home()">Back to Courses</button></div>`;
 }
+
 
 function smartSearch(term){
  const output=document.getElementById("searchResults");
@@ -164,7 +152,7 @@ function smartSearch(term){
  const words=query.split(/\s+/).filter(Boolean);
  const matches=allQuestionRecords().map(q=>{
   const question=String(q.q).toLowerCase();
-  const options=(q.options||[]).join(" ").toLowerCase();
+  const options=q.options.join(" ").toLowerCase();
   const hay=`${question} ${options}`;
   let score=0;
   words.forEach(word=>{if(question.includes(word))score+=3;else if(hay.includes(word))score+=1});
@@ -181,7 +169,7 @@ function smartSearch(term){
      <button class="bookmark-mini" onclick="toggleSavedQuestion('${q.subject}',${q.id});smartSearch(document.getElementById('homeSearch').value)" aria-label="Bookmark">${isBookmarked(q.subject,q.id)?"★":"☆"}</button>
     </div>
     <h3>${q.id}. ${esc(q.q)}</h3>
-    <p>${(q.options||[]).map((o,i)=>`${String.fromCharCode(65+i)}. ${esc(o)}`).join("<br>")}</p>
+    <p>${q.options.map((o,i)=>`${String.fromCharCode(65+i)}. ${esc(o)}`).join("<br>")}</p>
    </article>`).join("")}
   </div>`:`<div class="not-attempted">No matching question found.</div>`;
 }
@@ -194,7 +182,6 @@ function toggleSavedQuestion(subject,id){
  store.set("questionBookmarks",list);
 }
 function findQuestionByKey(key){
- if(typeof SUBJECT_DATA==="undefined")return null;
  const split=String(key).split(":");
  const subject=split[0],id=split.slice(1).join(":");
  const q=SUBJECT_DATA[subject]?.questions.find(x=>String(x.id)===id);
@@ -209,7 +196,7 @@ function collectionPage(title,keys,emptyMessage,type){
    <article class="card">
     <span class="badge">${q.subject} • ${q.paper}</span>
     <h3>${q.id}. ${esc(q.q)}</h3>
-    ${(q.options||[]).map((o,i)=>`<div class="option">${String.fromCharCode(65+i)}. ${esc(o)}</div>`).join("")}
+    ${q.options.map((o,i)=>`<div class="option">${String.fromCharCode(65+i)}. ${esc(o)}</div>`).join("")}
    </article>`).join("")}</div>`:`<p>${esc(emptyMessage)}</p>`}
   <div class="actions" style="margin-top:14px">
    ${records.length?`<button class="btn" onclick="startRevision('${type}')">Start Revision Test</button>`:""}
@@ -229,7 +216,7 @@ function startRevision(type){
  if(!questions.length)return alert("No questions available for revision.");
  const minutes=Math.max(20,Math.ceil(questions.length*1.2));
  quiz={subject:"REVISION",mode:"revision",name:type==="bookmarks"?"Bookmarked Revision":"Wrong Answer Revision",questions:shuffle(questions),index:0,answers:Array(questions.length).fill(null),review:[],seconds:minutes*60,totalSeconds:minutes*60,chosenMinutes:minutes};
- if(typeof persist==="function")persist();showTimer();if(typeof startTimer==="function")startTimer();if(typeof render==="function")render();
+ persist();showTimer();startTimer();render();
 }
 
 function spacedSchedule(){return store.get("spacedRevision",{})}
@@ -244,12 +231,25 @@ function spacedRevision(){
  }
  const minutes=Math.max(20,Math.ceil(due.length*1.2));
  quiz={subject:"REVISION",mode:"spaced",name:`Spaced Revision — ${due.length} Due`,questions:shuffle(due),index:0,answers:Array(due.length).fill(null),review:[],seconds:minutes*60,totalSeconds:minutes*60,chosenMinutes:minutes};
- if(typeof persist==="function")persist();showTimer();if(typeof startTimer==="function")startTimer();if(typeof render==="function")render();
+ persist();showTimer();startTimer();render();
 }
 function scheduleQuestion(key,level){
  const delays={wrong:1,repeat:3,good:7,strong:30};
  const days=delays[level]||1;
  const s=spacedSchedule(); s[key]={due:Date.now()+days*86400000,level,updatedAt:Date.now()}; setSpacedSchedule(s);
+}
+function updateSpacedFromResult(result){
+ const s=spacedSchedule();
+ result.questions.forEach((q,i)=>{
+  const key=qKey(q.subject||result.subject,q.id), a=result.answers[i];
+  if(a===null || a!==q.answer) scheduleQuestion(key,"wrong");
+  else {
+   const old=s[key];
+   if(old?.level==="wrong") scheduleQuestion(key,"repeat");
+   else if(old?.level==="repeat") scheduleQuestion(key,"good");
+   else scheduleQuestion(key,"strong");
+  }
+ });
 }
 function examModeSetup(){
  const total=allQuestionRecords().length;
@@ -265,7 +265,7 @@ function examTimerSetup(){
 function startExamFromSetup(){
  const mins=parseInt(document.getElementById("customMinutes").value), count=Number(document.getElementById("examCountFinal").value);
  if(!Number.isFinite(mins)||mins<20||mins>600){document.getElementById("timerError").innerHTML=`<div class="not-attempted">Choose between 20 and 600 minutes.</div>`;return}
- const qs=shuffle(allQuestionRecords()).slice(0,count); quiz={subject:"MIXED",mode:"exam",name:`CMA Final Exam Mode — ${count} Questions`,questions:qs,index:0,answers:Array(qs.length).fill(null),review:[],seconds:mins*60,totalSeconds:mins*60,chosenMinutes:mins}; if(typeof persist==="function")persist();showTimer();if(typeof startTimer==="function")startTimer();if(typeof render==="function")render();
+ const qs=shuffle(allQuestionRecords()).slice(0,count); quiz={subject:"MIXED",mode:"exam",name:`CMA Final Exam Mode — ${count} Questions`,questions:qs,index:0,answers:Array(qs.length).fill(null),review:[],seconds:mins*60,totalSeconds:mins*60,chosenMinutes:mins}; persist();showTimer();startTimer();render();
 }
 function pyqTrends(){
  const records=allQuestionRecords(), topicMap={}, paperMap={}, difficultyMap={};
@@ -273,7 +273,7 @@ function pyqTrends(){
  const topTopics=Object.entries(topicMap).sort((a,b)=>b[1]-a[1]).slice(0,12), topPapers=Object.entries(paperMap).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
  const yearTagged=records.filter(q=>q.year||q.attempt||q.exam||q.session);
  const yearMap={}; yearTagged.forEach(q=>{const y=q.year||q.attempt||q.exam||q.session;yearMap[y]=(yearMap[y]||0)+1});
- app.innerHTML=`<section class="card"><span class="badge">PYQ Trend Detector</span><h1>What Gets Tested Most?</h1><p>Frequency analysis across the current CMA Final question bank.</p><h2>🔥 Highest-Frequency Topics</h2><div class="review-list">${topTopics.map(([t,n],i)=>`<article class="card"><h3>#${i+1} ${esc(t)}</h3><p><b>${n}</b> questions tagged to this topic.</p></article>`).join("")}</div><h2>📚 Paper Coverage</h2><div class="review-list">${topPapers.map(([p,n])=>`<article class="card"><h3>${esc(p)}</h3><p>${n} questions currently available.</p></article>`).join("")}</div><h2>🎯 Difficulty Mix</h2><p>${Object.entries(difficultyMap).map(([d,n])=>`<span class="badge" style="margin:4px">${esc(d)}: ${n}</span>`).join("")}</p><div class="actions"><button class="btn" onclick="examModeSetup()">Use Exam Mode</button><button class="btn ghost" onclick="home()">Home</button></div></section>`;
+ app.innerHTML=`<section class="card"><span class="badge">PYQ Trend Detector</span><h1>What Gets Tested Most?</h1><p>Frequency analysis across the current CMA Final question bank. As PYQ year/session metadata is added, the detector can also show year-wise trends.</p><h2>🔥 Highest-Frequency Topics</h2><div class="review-list">${topTopics.map(([t,n],i)=>`<article class="card"><h3>#${i+1} ${esc(t)}</h3><p><b>${n}</b> questions tagged to this topic.</p></article>`).join("")}</div><h2>📚 Paper Coverage</h2><div class="review-list">${topPapers.map(([p,n])=>`<article class="card"><h3>${esc(p)}</h3><p>${n} questions currently available.</p></article>`).join("")}</div><h2>🎯 Difficulty Mix</h2><p>${Object.entries(difficultyMap).map(([d,n])=>`<span class="badge" style="margin:4px">${esc(d)}: ${n}</span>`).join("")}</p>${Object.keys(yearMap).length?`<h2>📅 Year / Attempt Trend</h2><p>${Object.entries(yearMap).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))).map(([y,n])=>`<span class="badge" style="margin:4px">${esc(y)}: ${n}</span>`).join("")}</p>`:`<div class="notice">The current question data does not yet contain year/session tags, so year-wise PYQ frequency cannot be calculated honestly yet.</div>`}<div class="actions"><button class="btn" onclick="examModeSetup()">Use Exam Mode</button><button class="btn ghost" onclick="home()">Home</button></div></section>`;
 }
 
 function profile(){
@@ -295,9 +295,60 @@ function profile(){
     <option ${p.level==="CMA Foundation"?"selected":""}>CMA Foundation</option>
     <option ${p.level==="CMA Intermediate"?"selected":""}>CMA Intermediate</option>
     <option ${p.level==="CMA Final"?"selected":""}>CMA Final</option>
-    <option ${p.level==="CA Intermediate"?"selected":""}>CA Intermediate</option>
-    <option ${p.level==="CA Final"?"selected":""}>CA Final</option>
-   </select></div>
-   <div class="full"><label>City</label><input class="input" id="pCity" value="${esc(p.city||"")}"></div>
-  </div>
-  <div class="act
+    <option ${p.level==="CA Intermediate"?"selec
+              /* ===================================================
+   FIREBASE CLOUD LEADERBOARD
+   =================================================== */
+async function leaderboard() {
+  const appElement = document.getElementById("app") || document.querySelector("main");
+  appElement.innerHTML = `<section class="card" style="text-align:center;padding:24px;"><div class="spinner"></div><h2>Loading Jungle Rankings…</h2></section>`;
+
+  let rows = [];
+  try {
+    if (typeof firebaseDb !== "undefined") {
+      const snap = await firebaseDb.collection("leaderboard").orderBy("score", "desc").limit(10).get();
+      snap.forEach(doc => rows.push(doc.data()));
+    }
+  } catch (err) {
+    console.warn("Could not fetch cloud leaderboard:", err);
+  }
+
+  if (!rows.length) {
+    rows = (typeof attempts === "function" ? attempts() : []).map(a => ({
+      name: (typeof profileData === "function" ? profileData()?.name : null) || "Student",
+      level: (typeof profileData === "function" ? profileData()?.level : null) || "CMA Final",
+      score: a.pct || 0
+    })).sort((a,b) => b.score - a.score).slice(0, 10);
+  }
+
+  const tableRows = rows.map((r, i) => `
+    <tr style="border-bottom: 1px solid #eee;">
+      <td style="padding:10px;text-align:center;"><b>${i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</b></td>
+      <td style="padding:10px;"><strong>${esc(r.name || "Student")}</strong></td>
+      <td style="padding:10px;">${esc(r.level || "CMA Final")}</td>
+      <td style="padding:10px;text-align:right;font-weight:bold;color:#2b7a0b;">${r.score}%</td>
+    </tr>
+  `).join("");
+
+  appElement.innerHTML = `
+    <section class="card" style="max-width:550px;margin:20px auto;padding:16px;">
+      <span class="badge">Live Rankings</span>
+      <h1 style="text-align:center;margin-bottom:4px;">🏆 Leaderboard</h1>
+      <p style="text-align:center;color:#2b7a0b;font-size:12px;margin-bottom:16px;">● Connected to Firebase Cloud</p>
+      <table style="width:100%;border-collapse:collapse;text-align:left;">
+        <thead>
+          <tr style="border-bottom:2px solid #ddd;color:#666;">
+            <th style="padding:8px;text-align:center;">Rank</th>
+            <th style="padding:8px;">Name</th>
+            <th style="padding:8px;">Level</th>
+            <th style="padding:8px;text-align:right;">Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows || '<tr><td colspan="4" style="text-align:center;padding:16px;color:#888;">No scores yet. Complete a quiz to rank!</td></tr>'}
+        </tbody>
+      </table>
+      <button class="btn" style="margin-top:20px;width:100%;" onclick="home()">Home</button>
+    </section>
+  `;
+}
